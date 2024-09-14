@@ -28,8 +28,9 @@ const authenticateToken = (req, res, next) => {
 // Middleware setup
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: ["https://mern-website-1whq.vercel.app"],
     methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true
   })
 );
 app.use(express.json());

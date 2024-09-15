@@ -2,12 +2,12 @@ require("dotenv").config();
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const express = require("express");
 const mongoose = require("mongoose");
-const cors = require("cors");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const path = require("path"); // Added to handle path for serving static files
 
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 5000; // Ensure dynamic PORT selection
 
 // Middleware for token authentication
 const authenticateToken = (req, res, next) => {
@@ -26,13 +26,7 @@ const authenticateToken = (req, res, next) => {
 };
 
 // Middleware setup
-app.use(
-  cors({
-    origin: "http://localhost:3000",
-    methods: ["GET", "POST", "PUT", "DELETE"],
-  })
-);
-app.use(express.json());
+app.use(express.json()); // Removed cors
 
 // MongoDB connection
 mongoose
@@ -76,33 +70,31 @@ app.post("/signup", async (req, res) => {
 });
 
 // Login route
-// Login route
-app.post('/login', async (req, res) => {
-    const { username, password } = req.body;
+app.post("/login", async (req, res) => {
+  const { username, password } = req.body;
 
-    try {
-        if (!username || !password) {
-            return res.status(400).json({ error: 'Username and password are required' });
-        }
-
-        const user = await User.findOne({ username });
-        if (!user) {
-            return res.status(400).json({ error: 'Invalid credentials' });
-        }
-
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-            return res.status(400).json({ error: 'Invalid credentials' });
-        }
-
-        const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-        res.json({ token }); // Ensure token is being sent in response
-    } catch (err) {
-        console.error('Error during login:', err);
-        res.status(500).json({ error: 'Login failed', details: err.message });
+  try {
+    if (!username || !password) {
+      return res.status(400).json({ error: "Username and password are required" });
     }
-});
 
+    const user = await User.findOne({ username });
+    if (!user) {
+      return res.status(400).json({ error: "Invalid credentials" });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ error: "Invalid credentials" });
+    }
+
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
+    res.json({ token }); // Ensure token is being sent in response
+  } catch (err) {
+    console.error("Error during login:", err);
+    res.status(500).json({ error: "Login failed", details: err.message });
+  }
+});
 
 // Protected route to verify token validity
 app.get("/protected", authenticateToken, (req, res) => {
@@ -123,9 +115,8 @@ app.post("/generate-workout", authenticateToken, async (req, res) => {
     return res.status(400).send("Prompt is required");
   }
 
-  // Default instruction for generating a workout plan in JSON format
-  const formatInstruction = "Generate a JSON response for a weekly workout plan. Each day should have an array of exercises, and each exercise should contain the following keys: name: The name of the exercise as a string. sets: Number of sets as an integer. reps: Number of reps as a string (it can be a range like '8-12' or a specific value). rest: Rest time between sets in seconds as an integer. Include rest days with no exercises. Don't put any extra text, just give JSON.";
-  // Combine user prompt with the default instruction
+  const formatInstruction =
+    "Generate a JSON response for a weekly workout plan. Each day should have an array of exercises, and each exercise should contain the following keys: name: The name of the exercise as a string. sets: Number of sets as an integer. reps: Number of reps as a string (it can be a range like '8-12' or a specific value). rest: Rest time between sets in seconds as an integer. Include rest days with no exercises. Don't put any extra text, just give JSON.";
   const combinedPrompt = `${userPrompt}. ${formatInstruction}`;
 
   const genAI = new GoogleGenerativeAI(apiKey);
@@ -146,7 +137,13 @@ app.post("/generate-workout", authenticateToken, async (req, res) => {
 });
 
 
+app.use(express.static(path.join(__dirname,"build")));
 
+app.get("/*", (req, res) => {
+  res.sendFile(path.join(__dirname,  "build", "index.html"));
+});
+
+// Start the server
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
